@@ -1,0 +1,105 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Deploys a John Snow Labs Healthcare NLP Marketplace container onto a private SageMaker Real-Time Endpoint inside a secure AWS VPC.'
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: prod
+    Description: Environment name for resource tagging.
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: The ID of your existing private AWS VPC.
+
+  PrivateSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: List of private subnet IDs inside the VPC where SageMaker will deploy.
+
+  SecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Security group ID allowing inbound traffic from your internal web apps.
+
+  JslMarketplaceContainerImageUri:
+    Type: String
+    Default: '709825985650.dkr.ecr.us-east-1.amazonaws.com/johnsnowlabs/healthcare-nlp-clinical-analysis:latest'
+    Description: The ECR Image URI provided after subscribing to John Snow Labs via AWS Marketplace.
+
+  ModelDataS3Url:
+    Type: String
+    Description: S3 URL pointing to your private air-gap license JSON or model artifacts (if utilizing BYOL configuration).
+    Default: 's3://your-private-vpc-bucket/jsl-license/license.json'
+
+  InstanceType:
+    Type: String
+    Default: 'ml.g4dn.xlarge'
+    AllowedValues:
+      - 'ml.g4dn.xlarge'
+      - 'ml.g5.xlarge'
+      - 'ml.c5.xlarge'
+    Description: The instance family powering the clinical model. GPUs (g4dn/g5) are strongly recommended for sub-second responses.
+
+Resources:
+  # Execution Role for SageMaker
+  SageMakerExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2010-10-07'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sagemaker.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSageMakerFullAccess
+      Policies:
+        - PolicyName: PrivateVpcS3Access
+          PolicyDocument:
+            Version: '2010-10-07'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub 'arn:aws:iam::aws:statements: s3:::*' # Scope down to your specific model registry buckets in production
+
+  # SageMaker Model Definition
+  SageMakerModel:
+    Type: AWS::SageMaker::Model
+    Properties:
+      ModelName: !Sub 'jsl-clinical-ner-model-${EnvironmentName}'
+      ExecutionRoleArn: !GetAtt SageMakerExecutionRole.Arn
+      PrimaryContainer:
+        Image: !Ref JslMarketplaceContainerImageUri
+        ModelDataUrl: !Ref ModelDataS3Url
+        Environment:
+          SPARK_JSL_SETTINGS_LICENSE_PATH: '/opt/ml/model/license.json'
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref SecurityGroupId
+        Subnets: !Ref PrivateSubnetIds
+
+  # SageMaker Endpoint Configuration (Sets up Auto-Scaling & Hardware Baseline)
+  SageMakerEndpointConfig:
+    Type: AWS::SageMaker::EndpointConfig
+    Properties:
+      EndpointConfigName: !Sub 'jsl-clinical-ner-config-${EnvironmentName}'
+      ProductionVariants:
+        - VariantName: AllTraffic
+          ModelName: !GetAtt SageMakerModel.ModelName
+          InitialInstanceCount: 2 # Configured for High Availability across multi-AZ private subnets
+          InstanceType: !Ref InstanceType
+          InitialVariantWeight: 1.0
+
+  # The Live Production Managed Endpoint
+  SageMakerEndpoint:
+    Type: AWS::SageMaker::Endpoint
+    Properties:
+      EndpointName: !Sub 'jsl-clinical-ner-endpoint-${EnvironmentName}'
+      EndpointConfigName: !GetAtt SageMakerEndpointConfig.EndpointConfigName
+
+Outputs:
+  EndpointName:
+    Description: The name of the deployed private SageMaker Endpoint to invoke via your application client.
+    Value: !GetAtt SageMakerEndpoint.EndpointName
