@@ -92,3 +92,7 @@ Lifestyle & Social Factors (SDOH)
 
 Substance Use: Tobacco, alcohol, and drug usage history (including frequency and status).Social Determinants: Employment status, living situations, housing stability, and environmental risk factors.
 
+```
+Apache license 2.0 
+Copyright: Eric Michel 
+```
