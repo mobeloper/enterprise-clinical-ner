@@ -1,0 +1,40 @@
+{
+  "containerDefinitions": [
+    {
+      "name": "clinical-ner-gateway",
+      "image": "<your-aws-account-id>.dkr.ecr.<your-region>://",
+      "cpu": 256,
+      "memory": 512,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "hostPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "SAGEMAKER_ENDPOINT_NAME",
+          "value": "ClinicalNER-RealTimeEndpoint"
+        },
+        {
+          "name": "AWS_DEFAULT_REGION",
+          "value": "us-east-1"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/clinical-ner-gateway",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "gateway"
+        }
+      }
+    }
+  ],
+  "requiresCompatibilities": ["FARGATE"],
+  "networkMode": "awsvpc",
+  "cpu": "256",
+  "memory": "512"
+}
