@@ -1,0 +1,110 @@
+# Open source: Apache 2.0 license 
+# Copyright: Eric Michel
+
+name: FastAPI Clinical Gateway CI Pipeline
+
+on:
+  push:
+    branches: [ main, release ]
+  pull_request:
+    branches: [ main, release ]
+
+jobs:
+  validate-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Check out repository code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip' # Automatically caches downloaded dependencies to speed up future runs
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        # Install explicit production and staging testing packages
+        pip install fastapi pydantic uvicorn boto3 pytest httpx flake8 black
+
+    - name: Code Formatting Check (Black)
+      run: |
+        # Verifies the code conforms to clean Python aesthetic styles
+        black --check app.py
+
+    - name: Code Linting Check (Flake8)
+      run: |
+        # Stop the build if there are Python syntax errors or undefined names
+        flake8 app.py --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all linting warnings as flags rather than absolute structural failures
+        flake8 app.py --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Run Gateway Unit & Mock Tests
+      env:
+        # Provide placeholder mock variables so boto3 initialization doesn't throw auth exceptions
+        AWS_DEFAULT_REGION: us-east-1
+        AWS_REGION: us-east-1
+        AWS_ACCESS_KEY_ID: mock-access-key-id
+        AWS_SECRET_ACCESS_KEY: mock-secret-access-key
+        SAGEMAKER_ENDPOINT_NAME: mock-jsl-endpoint-test
+      run: |
+        # Creates an inline execution test file to assert app.py initialisation works seamlessly
+        cat << 'EOF' > test_gateway_init.py
+        import pytest
+        from fastapi.testclient import TestClient
+        from unittest.mock import MagicMock, patch
+
+        # Import the runtime application instance
+        from app import app
+
+        client = TestClient(app)
+
+        def test_healthz_endpoint():
+            """Ensures basic routing loops execute and map the configuration correctly."""
+            response = client.get("/healthz")
+            assert response.status_code == 200
+            assert response.json() == {
+                "status": "healthy",
+                "target_endpoint": "mock-jsl-endpoint-test"
+            }
+
+        def test_empty_payload_rejection():
+            """Validates Pydantic and custom verification rejections for empty input strings."""
+            response = client.post("/api/v1/extract-clinical-entities", json={"text": "   "})
+            assert response.status_code == 400
+            assert "cannot be empty" in response.json()["detail"]
+
+        @patch("app.sagemaker_runtime.invoke_endpoint")
+        def test_mocked_ner_pipeline_success(mock_invoke):
+            """Simulates a successful structured AWS SageMaker runtime response loop."""
+            # Setup realistic binary streaming response payloads matching Boto3
+            mock_body = MagicMock()
+            mock_body.read.return_value = b'{"predictions": [{"entity": "DRUG", "text": "Aspirin"}]}'
+            mock_invoke.return_value = {"Body": mock_body}
+
+            payload = {"text": "Patient taking Aspirin."}
+            response = client.post("/api/v1/extract-clinical-entities", json=payload)
+            
+            assert response.status_code == 200
+            assert response.json()["status"] == "success"
+            assert response.json()["predictions"][0]["entity"] == "DRUG"
+
+        @patch("app.sagemaker_runtime.invoke_endpoint")
+        def test_mocked_deid_mask_success(mock_invoke):
+            """Simulates a successful structural de-identification response loop."""
+            mock_body = MagicMock()
+            mock_body.read.return_value = b'{"deidentified": ["Patient", "[PATIENT]"], "NAME": ["Jane Doe"]}'
+            mock_invoke.return_value = {"Body": mock_body}
+
+            payload = {"text": "Patient Jane Doe."}
+            response = client.post("/api/v1/deidentify-clinical-text?mode=mask", json=payload)
+            
+            assert response.status_code == 200
+            assert response.json()["mode_applied"] == "mask"
+            assert "[PATIENT]" in response.json()["deidentified_text"]
+        EOF
+        
+        # Execute tests via pytest suite environment execution
+        pytest test_gateway_init.py -v
