@@ -1,0 +1,16 @@
+├── .github/workflows/
+│   └── deploy.yml          # Your OIDC GitHub execution steps
+├── terraform/
+│   ├── backend.tf          # S3 & DynamoDB distributed locking file
+│   ├── main.tf             # Core CodeBuild, ECR repo, and IAM manifests
+│   ├── variables.tf        # Explicit account variables schemas
+│   ├── vpc-endpoints.tf    # VPC Endpoints loopback routing layer
+│   ├── staging.tfvars      # Parameter arguments bundle for Staging
+│   ├── production.tfvars   # Parameter arguments bundle for Production
+│   └── others...           # others
+├── tests/
+│   └── test_gateway.py     # Local pytest verification suites
+├── app.py                  # Core FastAPI runtime server logic
+├── buildspec.yml           # CodeBuild phased automation commands
+├── Dockerfile              # Minimized non-root application image configuration
+└── requirements.txt        # Frozen dependencies array file
