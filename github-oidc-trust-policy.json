@@ -1,0 +1,20 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "Federated": "arn:aws:iam::123456789012:oidc-provider/://githubusercontent.com"
+            },
+            "Action": "sts:AssumeRoleWithWebIdentity",
+            "Condition": {
+                "StringEquals": {
+                    "://githubusercontent.com:aud": "://amazonaws.com"
+                },
+                "StringLike": {
+                    "://githubusercontent.com:sub": "repo:your-github-org/your-clinical-repo:ref:refs/heads/main"
+                }
+            }
+        }
+    ]
+}
