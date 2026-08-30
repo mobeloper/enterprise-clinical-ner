@@ -1,15 +1,26 @@
 version: 0.2
 
 phases:
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - echo Installing test dependencies...
+      # Install testing requirements early to validate the raw codebase
+      - pip install -r requirements.txt pytest httpx
+
   pre_build:
     commands:
-      - echo Logging into Amazon ECR...
+      - echo Running unit and integration tests via pytest...
+      # Execute test suite. CodeBuild aborts execution if this returns a non-zero exit code
+      - pytest tests/ --maxfail=1 --disable-warnings
+      
+      - echo Tests passed successfully. Proceeding to Amazon ECR authentication...
       - aws --version
-      # Retrieve the ECR login token securely over the internal network endpoint
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $REPOSITORY_URI
-      # Define unique immutable image tags based on the Git commit hash identifier
       - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
       - IMAGE_TAG=${COMMIT_HASH:-latest}
+      
   build:
     commands:
       - echo Build started on `date`
