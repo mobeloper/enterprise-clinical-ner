@@ -106,6 +106,125 @@ Lifestyle & Social Factors (SDOH)
 
 Substance Use: Tobacco, alcohol, and drug usage history (including frequency and status).Social Determinants: Employment status, living situations, housing stability, and environmental risk factors.
 
+## Quick Start & API Testing
+
+You can interact with the API gateway using standard `curl` commands. Ensure your application is running locally or change `localhost:8000` to your deployed AWS Application Load Balancer (ALB) DNS route.
+
+### 1. Extract Clinical Entities (NER)
+This endpoint processes raw clinical notes to extract structured medical concepts (conditions, drugs, dosages, etc.).
+
+**Request:**
+```bash
+curl -X 'POST' \
+  'http://localhost:8000/api/v1/extract-clinical-entities' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "text": "Patient Jane Doe is a 73-year-old female presenting with acute myocardial infarction at Parker Hospital. Prescribed Aspirin 81mg daily."
+}'
+```
+
+**Expected Response (JSON):**
+```json
+{
+  "status": "success",
+  "processed_text": "Patient Jane Doe is a 73-year-old female presenting with acute myocardial infarction at Parker Hospital. Prescribed Aspirin 81mg daily.",
+  "predictions": [
+    { "entity": "PATIENT", "text": "Jane Doe", "start": 13, "end": 20 },
+    { "entity": "AGE", "text": "73-year-old", "start": 27, "end": 37 },
+    { "entity": "GENDER", "text": "female", "start": 39, "end": 44 },
+    { "entity": "CONDITION", "text": "acute myocardial infarction", "start": 62, "end": 88 },
+    { "entity": "HOSPITAL", "text": "Parker Hospital", "start": 93, "end": 107 },
+    { "entity": "DRUG", "text": "Aspirin", "start": 121, "end": 127 },
+    { "entity": "DOSAGE", "text": "81mg", "start": 129, "end": 132 },
+    { "entity": "FREQUENCY", "text": "daily", "start": 134, "end": 138 }
+  ]
+}
+```
+
+---
+
+### 2. HIPAA De-identification & Masking (De-ID)
+This endpoint removes Protected Health Information (PHI). You can toggle between strict structural tagging (`mask`) or synthetic data generation (`obfuscate`) using the `mode` query parameter.
+
+#### Option A: Masking Mode (`?mode=mask`)
+Replaces names, dates, and locations with structural labels.
+
+**Request:**
+```bash
+curl -X 'POST' \
+  'http://localhost:8000/api/v1/deidentify-clinical-text?mode=mask' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "text": "Patient Jane Doe born May 5 1953 was admitted to Parker Hospital."
+}'
+```
+
+**Expected Response (JSON):**
+```json
+{
+  "status": "success",
+  "mode_applied": "mask",
+  "deidentified_text": "Patient [PATIENT] born [DATE] was admitted to [HOSPITAL].",
+  "detected_phi_summary": {
+    "names": ["Jane Doe"],
+    "dates": ["May 5 1953"],
+    "contact_info": [],
+    "locations": ["Parker Hospital"]
+  }
+}
+```
+
+#### Option B: Obfuscation Mode (`?mode=obfuscate`)
+Replaces real text with realistic, synthetically generated data to preserve natural grammar context for secondary AI model training.
+
+**Request:**
+```bash
+curl -X 'POST' \
+  'http://localhost:8000/api/v1/deidentify-clinical-text?mode=obfuscate' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "text": "Patient Jane Doe born May 5 1953 was admitted to Parker Hospital."
+}'
+```
+
+**Expected Response (JSON):**
+```json
+{
+  "status": "success",
+  "mode_applied": "obfuscate",
+  "deidentified_text": "Patient Mary Gallagher born Oct 12 1964 was admitted to Ridgeview Medical Center.",
+  "detected_phi_summary": {
+    "names": ["Jane Doe"],
+    "dates": ["May 5 1953"],
+    "contact_info": [],
+    "locations": ["Parker Hospital"]
+  }
+}
+```
+
+---
+
+### 3. Health & Liveness Probe
+Used by internal VPC Application Load Balancers or Kubernetes ingress controllers to verify path routing to the backend SageMaker container pipeline.
+
+**Request:**
+```bash
+curl -X 'GET' 'http://localhost:8000/healthz' -H 'accept: application/json'
+```
+
+**Expected Response (JSON):**
+```json
+{
+  "status": "healthy",
+  "target_endpoint": "jsl-clinical-ner-endpoint-prod"
+}
+```
+
+## Author
+
 ```
 Apache license 2.0 
 Copyright: Eric Michel 
