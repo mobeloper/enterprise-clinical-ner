@@ -1,0 +1,37 @@
+name: Production Clinical AI CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main  # Triggers when code is merged into your production branch
+
+permissions:
+  id-token: write # Required for requesting the JWT to assume AWS IAM via OIDC
+  contents: read  # Required to checkout the repository code
+
+env:
+  AWS_REGION: us-east-1
+  # The IAM Role configured with a trust relationship to your GitHub Organization
+  AWS_ROLE_ARN: arn:aws:iam::123456789012:role/GitHubActionsCodeBuildRunner
+  CODEBUILD_PROJECT_NAME: ClinicalNER-Gateway-Build
+
+jobs:
+  trigger-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          audience: ://amazonaws.com
+
+      - name: Trigger AWS CodeBuild Project
+        run: |
+          echo "Starting internal enterprise build for commit ${{ github.sha }}..."
+          aws codebuild start-build \
+            --project-name ${{ env.CODEBUILD_PROJECT_NAME }} \
+            --source-version-override ${{ github.sha }}
