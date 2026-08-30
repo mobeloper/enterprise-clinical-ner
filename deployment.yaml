@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clinical-ner-gateway
+  namespace: clinical-ai
+  labels:
+    app: clinical-ner-gateway
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: clinical-ner-gateway
+  template:
+    metadata:
+      labels:
+        app: clinical-ner-gateway
+    spec:
+      # Associates the pod with an IAM role for secure SageMaker API invocation
+      serviceAccountName: clinical-ner-sa
+      containers:
+      - name: gateway
+        image: <your-aws-account-id>.dkr.ecr.<your-region>://
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+        env:
+        - name: SAGEMAKER_ENDPOINT_NAME
+          value: "ClinicalNER-RealTimeEndpoint"
+        - name: AWS_DEFAULT_REGION
+          value: "us-east-1"
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "250m"
+            memory: "256Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clinical-ner-gateway-service
+  namespace: clinical-ai
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8000
+    protocol: TCP
+  selector:
+    app: clinical-ner-gateway
