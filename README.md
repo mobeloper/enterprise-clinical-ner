@@ -1,12 +1,26 @@
 # HIPAA Enterprise Clinical NER Gateway 
 
-An production-ready, HIPAA-compliant AI engine that automatically reads unstructured clinical documents, extracts medical concepts, and structures them into standardized healthcare data (like ICD-10 and RxNorm) inside your own secure cloud. 
+An production-ready, HIPAA-compliant AI engine that automatically reads unstructured clinical documents, extracts medical concepts, and structures them into standardized healthcare data (like ICD-10 and RxNorm) inside your own secure cloud. It transforms unstructured medical records and scanned documents into structured, actionable healthcare data to automate clinical workflows and medical coding. It includes Clinical Named Entity Recognition (NER) with state-of-the-art extraction for 400+ clinical entities including conditions, dosages, anatomical structures, and lifestyle factors. Also De-identification & HIPAA Masking with automatic detection and obfuscation or obfuscating of Protected Health Information (PHI) to safely anonymize health data.
 
-It transforms unstructured medical records and scanned documents into structured, actionable healthcare data to automate clinical workflows and medical coding.
-
-In includes a sagemaker real-time endpoint with CloudFormation Blueprint for private AWS Virtual Private Cloud (VPC).
+This repo includes a sagemaker real-time endpoint with CloudFormation Blueprint for private AWS Virtual Private Cloud (VPC).
 
 Fully production-grade, secure, and observable.
+
+It uses John Snow Labs' enterprise-grade Healthcare NLP environment wrapped as a deployable container image. It is designed for seamless, pay-as-you-go deployment directly into your native AWS infrastructure (such as Amazon ECS, EKS, or SageMaker).
+
+## Clinical NER Output: 
+
+If a doctor writes, “patient is taking 50mg of Losartan daily for hypertension,” your clinical app instantly receives a structured payload like this:
+```
+{
+  "Drug": "Losartan",
+  "Strength": "50mg",
+  "Frequency": "daily",
+  "Condition": "hypertension"
+}
+
+```
+
 
 ## What is included here:
 
