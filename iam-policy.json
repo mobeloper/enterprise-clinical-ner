@@ -1,0 +1,23 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "AllowSageMakerEndpointInvocation",
+            "Effect": "Allow",
+            "Action": [
+                "sagemaker:InvokeEndpoint"
+            ],
+            "Resource": "arn:aws:sagemaker:us-east-1:123456789012:endpoint/clinicalner-realtimeendpoint"
+        },
+        {
+            "Sid": "DenyAllOtherSageMakerActions",
+            "Effect": "Deny",
+            "Action": [
+                "sagemaker:DeleteEndpoint",
+                "sagemaker:UpdateEndpoint",
+                "sagemaker:CreateEndpoint"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
