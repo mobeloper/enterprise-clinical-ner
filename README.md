@@ -16,3 +16,16 @@ This Python application acts as your client-facing service layer. It acts as an 
 - Startup Optimization: The script uses a singular instantiated boto3.client framework instance, keeping network connections alive over a local endpoint network path to meet your sub-second latency baseline (~30ms–90ms execution speeds).
 
 - Strict Schema Validation: It leverages robust Pydantic structures to sanitize unstructured text inputs from medical databases or Electronic Health Records (EHR) systems before passing them to the GPU runtime.
+
+
+To apply this stack safely across isolated environments, create distinct variable files and feed them straight into your execution engine step parameters.
+
+Run commands:
+
+# Run for Staging environment validation
+terraform plan -var-file="staging.tfvars"
+terraform apply -var-file="staging.tfvars"
+
+# Run for Production infrastructure synchronization
+terraform plan -var-file="production.tfvars"
+terraform apply -var-file="production.tfvars"
